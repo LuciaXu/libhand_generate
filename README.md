@@ -1,2 +1,9 @@
 # libhand_generate
-a modification of libhand_public
+Modifications of libhand_public:
+save the depth images
+save the bone positions
+save the camera position
+
+Original version is here:https://github.com/jsupancic/libhand-public
+
+
