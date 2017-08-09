@@ -33,6 +33,11 @@
 //test
 # include <iostream>
 # include <fstream>
+#include <stdlib.h>     /* srand, rand */
+#include <time.h>       /* time */
+#include <vector>
+
+extern int file_num;
 
 namespace libhand {
 
@@ -50,6 +55,8 @@ PoseDesigner::PoseDesigner()
     warning_key_(-1),
     save_d(0),
     save_b(0),
+    save_c(0),
+    auto_cg(0),
     pose_file_("") {
 }
 
@@ -98,6 +105,14 @@ void PoseDesigner::Setup(int argc, char **argv) {
   is_setup_ = true;
 }
 
+double randfrom(double min, double max) 
+{
+    //srand((unsigned) time(NULL));
+    double range = (max - min); 
+    double div = RAND_MAX / range;
+    return min + (rand() / div);
+}
+
 void PoseDesigner::Run() {
   if (!is_setup_) {
     throw runtime_error("Setup() not called for PoseDesigner");
@@ -109,8 +124,66 @@ void PoseDesigner::Run() {
     char cmd = cv::waitKey();
 
     if (!ProcessKey(cmd)) break;
+    //lx
+    if (auto_cg) 
+    {
+     auto_cg=0;
+     srand((unsigned) time(NULL));
+     double current_theta=camera_spec_.theta;
+     double current_phi=camera_spec_.phi;
+     double current_tilt=camera_spec_.tilt;
+     std::vector<double> current_bend;
+     std::vector<double> current_side;
+     std::vector<double> current_twist;
+     current_bend.resize(hand_pose_->num_joints());
+     current_side.resize(hand_pose_->num_joints());
+     current_twist.resize(hand_pose_->num_joints());
+     for(int ij=0; ij<hand_pose_->num_joints();ij++)
+     {
+       current_bend[ij]=(double)hand_pose_->bend(ij);
+       current_side[ij]=(double)hand_pose_->side(ij);
+       current_twist[ij]=(double)hand_pose_->twist(ij);
+     }
+     for(int i=0; i<100;i++)
+     {
+      double random_r=randfrom(0.9,1.8);
+      camera_spec_.r = ( hand_renderer_.initial_cam_distance()
+                       * random_r );
+      
+      double random_theta=randfrom(-0.5,0.5);
+      camera_spec_.theta = current_theta + random_theta;
+      double random_phi=randfrom(-0.5,0.5);
+      camera_spec_.phi=current_phi + random_phi;
+      double random_tilt=randfrom(-0.5,0.5);
+      camera_spec_.tilt=current_tilt + random_tilt;
+      for (int j=0;j<hand_pose_->num_joints();j++)
+      { 
+        double random_bend = randfrom(-0.1,0.1);
+        double random_side = randfrom(-0.05,0.05);
+        double random_twist = randfrom(-0.05,0.05);
+        hand_pose_->bend(j)= (float)current_bend[j]+(float)random_bend;
+        hand_pose_->side(j)= (float)current_side[j]+(float)random_side;
+        hand_pose_->twist(j)=(float)current_twist[j]+(float)random_twist;
+      }
+      //cout<< "the random r is "<< random_r <<endl;
+      //cout<< "the random theta is "<< random_theta <<endl;
+      //cout<< "the random phi is "<< random_phi <<endl;
+      //cout<< "the random tilt is "<< random_tilt <<endl;
+      save_d=1;
+      save_b=1;
+      save_c=1;
+      RenderEverything();
+      cv::waitKey(100);
+      file_num++;
+     }
 
-    RenderEverything();
+    }
+    else
+    {
+      RenderEverything();
+    }
+
+    
   }
 }
 
@@ -192,6 +265,8 @@ bool PoseDesigner::ProcessKey(char cmd) {
   case '1': ResetCamera(); break;
   case 'x':save_d=!save_d;break;
   case 'y':save_b=!save_b;break;
+  case 'i':save_c=!save_c;break;
+  case 'u':auto_cg=!auto_cg;break;
   }
 
   if (warning_status_ >= 2) {
@@ -257,7 +332,15 @@ void PoseDesigner::RenderEverything() {
   display_ = hand_renderer_.pixel_buffer_cv().clone();
   //lx
   depth_v = hand_renderer_.depth_buffer_cv().clone();
-
+  if(save_c==1)
+  {
+    save_c=0;
+    ostringstream ss;
+    ss << "../../../Gestures/Segment/seg_" << file_num << ".jpg";
+    string imagename = ss.str();
+    cv::imwrite(imagename,display_);
+  }
+  
 
   if (render_hog_) RenderHog();
 
@@ -297,7 +380,13 @@ void PoseDesigner::RenderEverything() {
     HandRenderer::JointPositionMap j_map;
     hand_renderer_.walk_bones(j_map);
     std::ofstream bonefile;
-    bonefile.open("bone.txt");
+    ostringstream ss;
+    ss << "../../../Gestures/Joints/bone_" << file_num << ".txt";
+    string filename = ss.str();
+ 
+   bonefile.open(filename.c_str());
+
+
     HandRenderer::JointPositionMap::iterator pos;
     for (pos = j_map.begin(); pos != j_map.end(); ++pos) {
         //bonefile<<pos->first;
@@ -365,7 +454,9 @@ void PoseDesigner::DisplayHelp() {
                  "\n"
                  "  1 - Reset the camera to original view"
                  "\n"//lx
-                 "  x - Render depth (press again to rgb)");
+                 "  x - Render depth (press again to rgb)"
+                 "\n"//lx
+                 "  u - Render gestures according to the current one and save them");
 }
 
 void PoseDesigner::DisplayClearWarning() {
@@ -496,7 +587,13 @@ void PoseDesigner::SavePose() {
 void PoseDesigner::SaveDepth(cv::Mat depth_v,float hc_d){
    //depth_v = hand_renderer_.depth_buffer_cv().clone();
    std::ofstream depthfile;
-   depthfile.open("depth.txt");
+   ostringstream ss;
+
+   ss << "../../../Gestures/Depth/depth_" << file_num << ".txt";
+
+   string filename = ss.str();
+   depthfile.open(filename.c_str());
+
 depthfile << depth_v.rows;
 depthfile <<",";
 depthfile << depth_v.cols;

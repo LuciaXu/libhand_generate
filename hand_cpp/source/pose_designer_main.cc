@@ -18,8 +18,11 @@
 using namespace std;
 using namespace libhand;
 
+int file_num;
+
 int main(int argc, char **argv) {
   PoseDesigner pose_designer;
+  file_num=0;
 
   try {
     pose_designer.Setup(argc, argv);

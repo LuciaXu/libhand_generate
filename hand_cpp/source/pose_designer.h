@@ -109,6 +109,8 @@ class PoseDesigner {
   bool render_hog_;
   bool save_d;//lx
   bool save_b;
+  bool save_c;
+  bool auto_cg;
 
   int warning_status_;
   char warning_key_;

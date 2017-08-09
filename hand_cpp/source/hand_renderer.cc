@@ -60,6 +60,8 @@
 # include <iostream>
 # include <fstream>
 
+extern int file_num;
+
 namespace libhand {
 
 using namespace std;
@@ -815,7 +817,12 @@ float HandRendererPrivate::CameraHandDistance() {
 //lx
 void HandRendererPrivate::GetCameraInfo(){
    std::ofstream camerafile;
-   camerafile.open("camera.txt");
+   ostringstream ss;
+
+   ss << "../../../Gestures/Camera/camera_" << file_num << ".txt";
+
+   string filename = ss.str();
+   camerafile.open(filename.c_str());
    //camerafile<<camera_->getViewMatrix();
    //camerafile<<camera_->getProjectionMatrix();
    for(int i =0; i<4;i++)
