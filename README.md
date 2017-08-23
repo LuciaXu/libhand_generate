@@ -9,5 +9,6 @@ This is a modification of libhand_public( https://github.com/jsupancic/libhand-p
 ## How to use:
 * Installation: Please follow this guide (https://github.com/libhand/libhand).
 * Press key 'h' to see the instructions.
+* Run depth.py to see the depth images (with bone position) and color hand images.
 
 
