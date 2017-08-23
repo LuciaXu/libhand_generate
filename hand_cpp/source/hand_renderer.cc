@@ -26,27 +26,7 @@
 # include "OGRE/OgreVector3.h"
 # include "OGRE/OgreMatrix3.h"
 
-# include "OGRE/OgreRoot.h"
-# include "OGRE/OgreRenderSystem.h"
-# include "OGRE/OgreRenderWindow.h"
-# include "OGRE/OgreSceneManager.h"
-# include "OGRE/OgreTextureManager.h"
-# include "OGRE/OgreTexture.h"
-# include "OGRE/OgreHardwarePixelBuffer.h"
 
-# include "OGRE/OgreEntity.h"
-# include "OGRE/OgreBone.h"
-# include "OGRE/OgreSkeleton.h"
-#include <OGRE/OgreTagPoint.h>
-
-# include "OgreGLPlugin.h"
-# include "OgreOctreePlugin.h"
-
-# include "dot_sceneloader.h"
-# include "hand_camera_spec.h"
-# include "hand_pose.h"
-
-#include "OgreGpuCommandBufferFlush.hpp"
 
 #if __APPLE__ & __MACH__
 # include "mac_app_loop.h"
@@ -364,6 +344,12 @@ void HandRenderer::walk_bones(HandRenderer::JointPositionMap&jointPositionMap)
   private_->walk_bones(jointPositionMap);
   //jointPositionMap.erase(jointPositionMap.find("root"));
 }
+void HandRenderer::get2dposition(
+    const Ogre::Vector3 &position, 
+    Ogre::Real &x, Ogre::Real &y, Ogre::Real& z,bool tran_test)
+{
+  private_->get2dposition(position,x,y,z,tran_test);
+}
 
 void HandRenderer::Setup(int width, int height) {
   private_->Setup(width, height);
@@ -611,7 +597,7 @@ void HandRendererPrivate::LoadScene(const SceneSpec &scene_spec) {
     hand_skeleton_ = hand_entity_->getSkeleton();
 
     viewport_ = render_target_->addViewport(camera_);
-    viewport_->setBackgroundColour(ColourValue(0, 0, 0));
+    viewport_->setBackgroundColour(ColourValue(0, 0.33333, 255));
 
     for (int i = 0; i < scene_spec.num_bones(); ++i) {
       const string &bone_name = scene_spec.bone_name(i);
@@ -819,8 +805,8 @@ void HandRendererPrivate::GetCameraInfo(){
    std::ofstream camerafile;
    ostringstream ss;
 
-   ss << "../../../Gestures/Camera/camera_" << file_num << ".txt";
-
+   ss << "/media/data_cifs/lu/Synthetic/Camera/camera_" << file_num << ".txt";
+   //ss << "../../../test/cropcam_" << 0 << ".txt";
    string filename = ss.str();
    camerafile.open(filename.c_str());
    //camerafile<<camera_->getViewMatrix();

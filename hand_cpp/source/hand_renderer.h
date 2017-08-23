@@ -23,6 +23,28 @@
 #ifndef HAND_RENDERER_H
 #define HAND_RENDERER_H
 
+# include "OGRE/OgreRoot.h"
+# include "OGRE/OgreRenderSystem.h"
+# include "OGRE/OgreRenderWindow.h"
+# include "OGRE/OgreSceneManager.h"
+# include "OGRE/OgreTextureManager.h"
+# include "OGRE/OgreTexture.h"
+# include "OGRE/OgreHardwarePixelBuffer.h"
+
+# include "OGRE/OgreEntity.h"
+# include "OGRE/OgreBone.h"
+# include "OGRE/OgreSkeleton.h"
+#include <OGRE/OgreTagPoint.h>
+
+# include "OgreGLPlugin.h"
+# include "OgreOctreePlugin.h"
+
+# include "dot_sceneloader.h"
+# include "hand_camera_spec.h"
+# include "hand_pose.h"
+
+#include "OgreGpuCommandBufferFlush.hpp"
+
 # include "opencv2/opencv.hpp"
 
 
@@ -102,6 +124,9 @@ class HandRenderer {
   // 
   typedef map<string,cv::Vec6d> JointPositionMap;
   void walk_bones(JointPositionMap&jointPositionMap);
+  void get2dposition(
+    const Ogre::Vector3 &position, 
+    Ogre::Real &x, Ogre::Real &y, Ogre::Real& z,bool tran_test);
  private:
   // PIMPL (Private Implementation pointer)
   HandRendererPrivate *private_;

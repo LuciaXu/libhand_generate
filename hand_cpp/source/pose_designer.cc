@@ -36,8 +36,11 @@
 #include <stdlib.h>     /* srand, rand */
 #include <time.h>       /* time */
 #include <vector>
+#include <limits>
 
 extern int file_num;
+extern bool save_all;
+cv::Point topleft,bright;
 
 namespace libhand {
 
@@ -57,6 +60,8 @@ PoseDesigner::PoseDesigner()
     save_b(0),
     save_c(0),
     auto_cg(0),
+    //bound_box(0),
+    crop(0),
     pose_file_("") {
 }
 
@@ -144,12 +149,11 @@ void PoseDesigner::Run() {
        current_side[ij]=(double)hand_pose_->side(ij);
        current_twist[ij]=(double)hand_pose_->twist(ij);
      }
-     for(int i=0; i<100;i++)
+     for(int i=0; i<1000;i++)
      {
-      double random_r=randfrom(0.9,1.8);
+      double random_r=randfrom(1,1.8);
       camera_spec_.r = ( hand_renderer_.initial_cam_distance()
                        * random_r );
-      
       double random_theta=randfrom(-0.5,0.5);
       camera_spec_.theta = current_theta + random_theta;
       double random_phi=randfrom(-0.5,0.5);
@@ -158,8 +162,8 @@ void PoseDesigner::Run() {
       camera_spec_.tilt=current_tilt + random_tilt;
       for (int j=0;j<hand_pose_->num_joints();j++)
       { 
-        double random_bend = randfrom(-0.1,0.1);
-        double random_side = randfrom(-0.05,0.05);
+        double random_bend = randfrom(-0.2,0.2);
+        double random_side = randfrom(-0.07,0.07);
         double random_twist = randfrom(-0.05,0.05);
         hand_pose_->bend(j)= (float)current_bend[j]+(float)random_bend;
         hand_pose_->side(j)= (float)current_side[j]+(float)random_side;
@@ -169,11 +173,14 @@ void PoseDesigner::Run() {
       //cout<< "the random theta is "<< random_theta <<endl;
       //cout<< "the random phi is "<< random_phi <<endl;
       //cout<< "the random tilt is "<< random_tilt <<endl;
+      if(save_all)
+      {
       save_d=1;
       save_b=1;
       save_c=1;
+      }
       RenderEverything();
-      cv::waitKey(100);
+      //cv::waitKey(100);
       file_num++;
      }
 
@@ -247,7 +254,7 @@ bool PoseDesigner::ProcessKey(char cmd) {
     if (WarnKey(cmd)) return false;
     break;
   case 'h': render_help_ = !render_help_; break;
-  case 'd': render_hog_ = !render_hog_; break;
+  //case 'd': render_hog_ = !render_hog_; break;
   case 'b': ZeroBend(); break;
   case 's': ZeroSide(); break;
   case 't': ZeroTwist(); break;
@@ -267,6 +274,8 @@ bool PoseDesigner::ProcessKey(char cmd) {
   case 'y':save_b=!save_b;break;
   case 'i':save_c=!save_c;break;
   case 'u':auto_cg=!auto_cg;break;
+  case 'o':crop=!crop;break;
+  //case 'o':bound_box=!bound_box;break;
   }
 
   if (warning_status_ >= 2) {
@@ -332,13 +341,45 @@ void PoseDesigner::RenderEverything() {
   display_ = hand_renderer_.pixel_buffer_cv().clone();
   //lx
   depth_v = hand_renderer_.depth_buffer_cv().clone();
+  if(crop==1)
+  {
+    HandRenderer::JointPositionMap j_map;
+    hand_renderer_.walk_bones(j_map);
+    HandRenderer::JointPositionMap::iterator pos;
+    int tempnum=0;
+    cv::Point center;
+    double box=160;  
+    for (pos = j_map.begin(); pos != j_map.end(); ++pos) {
+        if(tempnum==26)
+        {
+          center.x= (int)pos->second[0];
+          center.y= (int)pos->second[1];
+        }
+        tempnum++;
+      }
+    topleft.x=center.x-box;
+    topleft.y=center.y-box;
+    bright.x=center.x+box;
+    bright.y=center.y+box;
+   }
+
   if(save_c==1)
   {
     save_c=0;
     ostringstream ss;
-    ss << "../../../Gestures/Segment/seg_" << file_num << ".jpg";
+    ss << "/media/data_cifs/lu/Synthetic/Segment/seg_" << file_num << ".jpg";
     string imagename = ss.str();
-    cv::imwrite(imagename,display_);
+    if(crop==0)
+    {
+      cv::imwrite(imagename,display_);
+    }
+    else
+    {
+      cv::Rect handbox(topleft,bright);
+      cv::Mat cropseg=display_(handbox);
+      cv::imwrite(imagename,cropseg);
+    }
+    
   }
   
 
@@ -366,12 +407,8 @@ void PoseDesigner::RenderEverything() {
   if(save_d==1)
   {
    save_d=0;
-   //TextPrinter printer_rt_1(display_,
-    //                      kRenderWinWidth - 30,
-    //                      kRenderWinHeight - 30);
-    //printer_rt_1.SetRightAlign();
-    //printer_rt_1.PrintF("save depth");
    SaveDepth(depth_v,hand_renderer_.hand_camera_distance());
+
   }
   if(save_b==1)
   {
@@ -381,15 +418,13 @@ void PoseDesigner::RenderEverything() {
     hand_renderer_.walk_bones(j_map);
     std::ofstream bonefile;
     ostringstream ss;
-    ss << "../../../Gestures/Joints/bone_" << file_num << ".txt";
+    ss << "/media/data_cifs/lu/Synthetic/Joints/bone_" << file_num << ".txt";
     string filename = ss.str();
  
-   bonefile.open(filename.c_str());
-
+    bonefile.open(filename.c_str());
 
     HandRenderer::JointPositionMap::iterator pos;
     for (pos = j_map.begin(); pos != j_map.end(); ++pos) {
-        //bonefile<<pos->first;
         bonefile<<pos->second[0]<<",";
         bonefile<<pos->second[1]<<",";
         bonefile<<pos->second[2]<<",";
@@ -401,8 +436,16 @@ void PoseDesigner::RenderEverything() {
     bonefile.close();
   }
   DrawCameraSketch();
-
-  cv::imshow(win_render_, display_);
+  if(crop==1)
+  { 
+    cv::rectangle(display_,topleft,bright,cv::Scalar(255,255,255),1,8);
+    cv::imshow(win_render_,display_);
+  }
+  else
+  {
+    cv::imshow(win_render_, display_);
+  }
+  
   cv::imshow(win_camera_, cam_sketch_);
 }
 
@@ -445,8 +488,8 @@ void PoseDesigner::DisplayHelp() {
                  "  r - Read a pose file\n"
                  "  w - Write a pose file\n"
                  "\n"
-                 "  d - Toggle HOG descriptor view\n"
-                 "\n"
+                 //"  d - Toggle HOG descriptor view\n"
+                 //"\n"
                  "  b / s / t - Reset (b)end or (s)ide or (t)wist to 0\n"
                  "  c - clear all angles back to zero\n"
                  "\n"
@@ -454,9 +497,13 @@ void PoseDesigner::DisplayHelp() {
                  "\n"
                  "  1 - Reset the camera to original view"
                  "\n"//lx
-                 "  x - Render depth (press again to rgb)"
+                 "  x - Save the depth of current pose\n"
+                 "  y - Save the bone information of current pose\n"
+                 "  i - Save the color image of current pose\n"
                  "\n"//lx
-                 "  u - Render gestures according to the current one and save them");
+                 "  u - Render 1000 gestures according to the current pose and save them\n"
+                 "  o - crop the hand by box\n"
+                 );
 }
 
 void PoseDesigner::DisplayClearWarning() {
@@ -585,35 +632,48 @@ void PoseDesigner::SavePose() {
 }
 
 void PoseDesigner::SaveDepth(cv::Mat depth_v,float hc_d){
-   //depth_v = hand_renderer_.depth_buffer_cv().clone();
+   cv::Mat cropd;
+   if(crop==1)
+   {
+     cv::Rect handbox(topleft,bright);
+     cropd=depth_v(handbox);
+   }
+   else
+   {
+     cropd=depth_v;
+   }
    std::ofstream depthfile;
    ostringstream ss;
 
-   ss << "../../../Gestures/Depth/depth_" << file_num << ".txt";
-
+   ss << "/media/data_cifs/lu/Synthetic/Depth/depth_" << file_num << ".txt";
+   //ss << "../../../test/cropdep_" << 0 << ".txt";
    string filename = ss.str();
    depthfile.open(filename.c_str());
 
-depthfile << depth_v.rows;
+depthfile << cropd.rows;
 depthfile <<",";
-depthfile << depth_v.cols;
+depthfile << cropd.cols;
 depthfile <<",";
-   for(int i=0;i<depth_v.rows;i++)
+   for(int i=0;i<cropd.rows;i++)
    {
-     for(int j=0;j<depth_v.cols;j++)
+     for(int j=0;j<cropd.cols;j++)
      {
-        depthfile << depth_v.at<float>(i,j);
+        float dvalue = cropd.at<float>(i,j);
+        depthfile << dvalue;
         depthfile <<",";
      }
    }
-   double minv,maxv;
-   cv::Point minL,maxL;
-   cv::minMaxLoc(depth_v,&maxv,&minv,&maxL,&minL);
-   depthfile << hc_d;
-depthfile <<",";
-   depthfile << minv;
-depthfile <<",";
-   depthfile <<maxv;
+   depthfile << depth_v.rows;
+   depthfile <<",";
+   depthfile << depth_v.cols;
+   depthfile <<",";
+   depthfile << topleft.x;
+   depthfile <<",";
+   depthfile << topleft.y;
+   depthfile <<",";
+   depthfile << bright.x;
+   depthfile <<",";
+   depthfile << bright.y;
    depthfile.close();
 }
 

@@ -111,6 +111,8 @@ class PoseDesigner {
   bool save_b;
   bool save_c;
   bool auto_cg;
+  //bool bound_box;
+  bool crop;
 
   int warning_status_;
   char warning_key_;
